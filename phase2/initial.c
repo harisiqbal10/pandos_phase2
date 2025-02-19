@@ -15,8 +15,14 @@ int deviceSemaphores[NUM_DEVICES + 1] = {0}; /* Device semaphores (extra one for
  * - Sets up the Pass Up Vector
  * - Prepares exception and TLB refill handlers
  */
-void initSystem()
+void initNucleus()
 {
+    /* Initialize Global Variables */
+    processCount = 0;                       
+    softBlockCount = 0;                      
+    readyQueue = NULL;                    
+    currentProcess = NULL;                
+
     /* Get the Pass Up Vector from BIOS Data Page */
     passupvector_t *passupvector = (passupvector_t *)PASSUPVECTOR;
 
@@ -27,4 +33,17 @@ void initSystem()
     /* Set the Exception handler */
     passupvector->exception_handler = (memaddr)exceptionHandler;
     passupvector->exception_stackPtr = (memaddr)0x20001000;
+
+    /* Initialize Phase 1 data structures */
+    initPcbs(); // Initialize PCB free list
+    initASL();  // Initialize Active Semaphore List (ASL)
+
+    /* Initialize Nucleus variables */
+    for (int i = 0; i < NUM_DEVICES + 1; i++)
+    {
+        deviceSemaphores[i] = 0;
+    }
+
+    /* Load the Interval Timer with 100 milliseconds */
+    LDIT(CLOCKINTERVAL);
 }
