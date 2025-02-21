@@ -95,4 +95,14 @@
 /* Macro to read the TOD clock */
 #define STCK(T) ((T) = ((* ((cpu_t *) TODLOADDR)) / (* ((cpu_t *) TIMESCALEADDR))))
 
+/* SYSCALL Constants*/
+#define CREATEPROCESS      1
+#define TERMINATEPROCESS   2
+#define PASSEREN           3
+#define VERHOGEN           4
+#define WAITIO             5
+#define GETCPUTIME         6
+#define WAITCLOCK          7
+#define GETSUPPORTPTR      8
+
 #endif
