@@ -18,12 +18,12 @@
 
 extern void exceptionHandler(); 
 
-extern int SYSCALL(int a0, int a1, int a2, int a3);
-extern pcb_PTR sysCreateProcess(state_t *statep, support_t *support_p); /* need to add support_t to types.h */
+extern void SYSCALL();
+extern void sysCreateProcess(); 
 extern void sysTerminate();
-extern void sysPasseren(int *semaddr);
-extern void sysVerhogen(int *semaddr);
-extern void sysWaitIO(int int1no, int dnum, int waitForTermRead);
+extern void sysPasseren();
+extern void sysVerhogen();
+extern void sysWaitIO();
 extern void sysGetCPUTime();
 extern void sysWaitClock();
 extern void sysGetSupportPTR();
