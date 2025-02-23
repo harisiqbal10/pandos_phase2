@@ -32,9 +32,10 @@
 #define CLOCKINTERVAL 100000UL
 
 /* Status Register Bit Masks */
-#define IEp 0x4        /* Enable Previous Interrupts (bit 2) */
-#define TE 0x08000000  /* Enable Local Timer (bit 27) */
-#define KUo 0xFFFFFFF7 /* Kernel Mode ON (clear bit 3) */
+#define IEp 0x4       /* Previous Interrupt Enable (bit 2) */
+#define KUo 0x10      /* Previous Kernel/User Mode (bit 4) */
+#define IM 0x0000FF00 /* Interrupt Mask (bits 8-15) */
+#define TE 0x08000000 /* Local Timer Enable (bit 27) */
 #define RAMTOP 0x20001000 /* Top of RAM for stack initialization */
 
 /* device interrupts */

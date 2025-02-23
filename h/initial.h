@@ -12,9 +12,6 @@
  */
 
 #include "../h/types.h"
-#include "../h/pcb.h"
-#include "../h/asl.h"
-#include "../h/const.h"
 
 #define NUM_DEVICES (DEVINTNUM * DEVPERINT) /* 40 total device semaphores */
 
@@ -28,8 +25,8 @@ extern int deviceSemaphores[NUM_DEVICES];
 /* Function Prototypes */
 extern void initNucleus();
 extern void createProcess();
-extern void uTLB_RefillHandler(); /* Provided placeholder function */
-extern void exceptionHandler();   /* To be implemented in exceptions.c */
+extern void uTLB_RefillHandler(); 
+
 
 /***************************************************************/
 

@@ -11,9 +11,6 @@
 
 
 #include "../h/types.h"
-#include "../h/const.h"
-#include "../h/pcb.h"
-#include "../h/asl.h"
 
 extern void scheduler(); 
 
