@@ -16,9 +16,9 @@
 #include "../h/pcb.h"
 #include "../h/asl.h"
 
-extern void exceptionHandler(); 
+extern void exceptionHandler();
 
-extern void SYSCALL();
+extern void syscallHandler();
 extern void sysCreateProcess(); 
 extern void sysTerminate();
 extern void sysPasseren();

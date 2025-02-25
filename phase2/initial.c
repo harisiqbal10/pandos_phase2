@@ -81,7 +81,7 @@ void createProcess()
     }
 
     /* Initialize Processor State */
-    p->p_s.s_status = IEp | TE | KUo;   /* Enable Interrupts, Timer, Kernel Mode */
+    p->p_s.s_status = IEPBITON | TEBITON | KUPBITON; /* Enable Interrupts, Timer, Kernel Mode */
     p->p_s.s_sp = RAMTOP;               /* Set Stack Pointer to RAMTOP */
     p->p_s.s_pc = (memaddr)test;        /* Set Program Counter to `test` */
     p->p_s.s_t9 = (memaddr)test;        /* Assign t9 register to `test` */
