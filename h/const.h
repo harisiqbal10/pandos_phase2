@@ -41,6 +41,11 @@
 
 #define RAMTOP 0x20001000 /* Top of RAM for stack initialization */
 
+
+#define CAUSEMASK 0x0000007C /* Mask to extract ExcCode from Cause register */
+#define RESVINSTR 10         /* Reserved Instruction (RI) Exception Code */
+#define CAUSEINTOFFS 2       /* ExcCode field starts at bit 2 */
+
 /* device interrupts */
 #define DISKINT			  3
 #define FLASHINT 		  4

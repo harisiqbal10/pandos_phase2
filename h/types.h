@@ -115,6 +115,7 @@ typedef struct pcb_t
 	/* Process status information */
 	state_t p_s;   /* Processor state */
 	cpu_t p_time;  /* CPU time used by process */
+	unsigned int p_startTOD; /* Time slice start (needed for SYS6) */
 	int *p_semAdd; /* Pointer to semaphore on which process is blocked */
 
 	/* Support layer information */

@@ -16,7 +16,7 @@ void exceptionHandler()
     state_t *savedState = (state_t *)BIOSDATAPAGE;
 
     /* Extract the exception code from the Cause register */
-    int exceptionCode = (savedState->s_cause & 0x0000007C) >> 2;
+    int exceptionCode = (savedState->s_cause & CAUSEMASK) >> 2;
 
     switch (exceptionCode)
     {
@@ -43,7 +43,7 @@ void exceptionHandler()
         break;
     default:
         /* Undefined exception, terminate the process */
-        terminateProcess(currentProcess);
+        sysTerminate(currentProcess);
         scheduler();
     }
 }
@@ -58,9 +58,9 @@ void syscallHandler(state_t *savedState)
     /* Check if the process is in user mode */
     if ((savedState->s_status & KUPBITON) != 0)
     {
-        /* If in user mode, terminate process */
-        terminateProcess(currentProcess);
-        scheduler();
+        /* Simulate a Program Trap exception */
+        savedState->s_cause = (savedState->s_cause & ~CAUSEMASK) | (RESVINSTR << CAUSEINTOFFS);
+        programTrapHandler(savedState);
     }
 
     /* Retrieve syscall number from register a0 */
@@ -102,13 +102,12 @@ void syscallHandler(state_t *savedState)
         break;
     default:
         /* Invalid syscall, terminate the process */
-        terminateProcess(currentProcess);
+        sysTerminate(currentProcess);
         scheduler();
     }
 
     /* Move to the next instruction after syscall */
     savedState->s_pc += 4;
-    savedState->s_t9 += 4;
     LDST(savedState);
 }
 
@@ -162,10 +161,24 @@ void sysTerminate(pcb_t *p)
         sysTerminate(removeChild(p));
     }
 
-    /* If the process is blocked on a semaphore, remove it */
+    /* If the process is blocked on a semaphore */
     if (p->p_semAdd != NULL)
     {
+        int *semAddr = p->p_semAdd;
+
+        /* Check if it's NOT a device semaphore before adjusting */
+        if (!(semAddr >= &deviceSemaphores[0] && semAddr <= &deviceSemaphores[NUM_DEVICES - 1]))
+        {
+            (*semAddr)++; /* Adjust the semaphore if it's NOT a device semaphore */
+        }
+
         outBlocked(p);
+
+        /* If the process was soft-blocked (waiting for I/O), decrement softBlockCount */
+        if (semAddr >= &deviceSemaphores[0] && semAddr <= &deviceSemaphores[NUM_DEVICES - 1])
+        {
+            softBlockCount--;
+        }
     }
 
     /* Remove process from the Ready Queue if it is in it */
@@ -182,6 +195,12 @@ void sysTerminate(pcb_t *p)
 
     /* Decrease active process count */
     processCount--;
+
+    /* If no more processes exist, HALT */
+    if (processCount == 0)
+    {
+        HALT();
+    }
 }
 
 /** performs the P opperation (wait) on the semaphore
@@ -189,12 +208,18 @@ void sysTerminate(pcb_t *p)
  */
 void sysPasseren(int *semaddr)
 {
+    /* Update CPU time */
+    updateCPUTime();
+
     /* Decrement the semaphore */
     (*semaddr)--;
 
     /* If semaphore is negative, block the process */
     if (*semaddr < 0)
     {
+        /* Save process state */
+        memcpy(&(currentProcess->p_s), (state_t *)BIOSDATAPAGE, sizeof(state_t));
+
         /* Block current process and add it to the semaphore queue */
         currentProcess->p_semAdd = semaddr;
         insertBlocked(semaddr, currentProcess);
@@ -232,7 +257,7 @@ void sysWaitIO(int intLineNo, int devNum, int waitForTermRead)
     /* Compute the device index */
     if (intLineNo == TERMINT)
     {
-        /* Terminals: Separate semaphores for Receive (0-7) and Transmit (8-15) */
+        /* Terminals: Separate semaphores for Receiver (0-7) and Transmitter (8-15) */
         deviceIndex = (4 * DEVPERINT) + (devNum * 2) + waitForTermRead;
     }
     else
@@ -241,19 +266,28 @@ void sysWaitIO(int intLineNo, int devNum, int waitForTermRead)
         deviceIndex = (intLineNo - 3) * DEVPERINT + devNum;
     }
 
-    /* Perform P operation on the device semaphore */
-    passeren(&deviceSemaphores[deviceIndex]);
+    /* Update CPU time */
+    updateCPUTime();
 
-    /* Store the device's status register value in v0 */
-    state_t *savedState = (state_t *)BIOSDATAPAGE;
-    savedState->s_v0 = ((device_t *)DEV_REG_ADDR(intLineNo, devNum))->d_status;
+    /* Save process state */
+    memcpy(&(currentProcess->p_s), (state_t *)BIOSDATAPAGE, sizeof(state_t));
+
+    /* Block the process and add it to the semaphore queue */
+    currentProcess->p_semAdd = &deviceSemaphores[deviceIndex];
+    insertBlocked(&deviceSemaphores[deviceIndex], currentProcess);
+
+    /* Call scheduler */
+    scheduler();
 }
 
 /** accumulated processor time of a process is placed in the callers v0 */
 void sysGetCPUTime(state_t *savedState)
 {
-    /* Store the accumulated CPU time of the current process in v0 */
-    savedState->s_v0 = currentProcess->p_time;
+    cpu_t currentTOD;
+    STCK(currentTOD); /* Store current TOD clock value */
+
+    /* Compute total CPU time: saved time + (current time - last recorded time) */
+    savedState->s_v0 = currentProcess->p_time + (currentTOD - currentProcess->p_startTOD);
 }
 
 /** performs a P opperation on the nucleus maintained pseudoclock
@@ -262,10 +296,17 @@ void sysGetCPUTime(state_t *savedState)
  */
 void sysWaitClock()
 {
-    /* Perform P() operation on the pseudo-clock semaphore */
-    passeren(&deviceSemaphores[NUM_DEVICES]);
+    /* Update CPU time */
+    updateCPUTime();
 
-    /* After blocking, call the scheduler */
+    /* Save process state */
+    memcpy(&(currentProcess->p_s), (state_t *)BIOSDATAPAGE, sizeof(state_t));
+
+    /* Block the process and add it to the pseudo-clock semaphore queue */
+    currentProcess->p_semAdd = &deviceSemaphores[NUM_DEVICES];
+    insertBlocked(&deviceSemaphores[NUM_DEVICES], currentProcess);
+
+    /* Call scheduler */
     scheduler();
 }
 
@@ -286,7 +327,7 @@ void *sysGetSupportPTR()
  */
 void programTrapHandler(state_t *savedState)
 {
-    terminateProcess(currentProcess);
+    sysTerminate(currentProcess);
     scheduler();
 }
 
@@ -299,37 +340,14 @@ void TLBExceptionHandler()
     PANIC(); /* Not implemented in this phase */
 }
 
-/**
- * Terminates the given process and removes it from the system.
- * If the process has children, they are also recursively terminated.
- */
-void terminateProcess(pcb_t *p)
+void updateCPUTime()
 {
-    if (p == NULL)
-        return;
+    unsigned int currentTOD; /* TOD clock value */
+    STCK(currentTOD);        /* Read the current TOD clock value */
 
-    /* Recursively terminate child processes */
-    while (!emptyChild(p))
-    {
-        terminateProcess(removeChild(p));
-    }
+    /* Update the accumulated CPU time */
+    currentProcess->p_time += (currentTOD - currentProcess->p_startTOD);
 
-    /* Remove process from any queues */
-    if (p->p_semAdd != NULL)
-    {
-        outBlocked(p);
-    }
-    else
-    {
-        outProcQ(&readyQueue, p);
-    }
-
-    freePcb(p);
-    processCount--;
-
-    /* If no more processes, halt the system */
-    if (processCount == 0)
-    {
-        HALT();
-    }
+    /* Reset the start time for the next time slice */
+    currentProcess->p_startTOD = currentTOD;
 }
