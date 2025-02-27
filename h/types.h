@@ -130,5 +130,10 @@ typedef struct semd_t
 	pcb_t *s_procQ;		   /* Tail pointer to a process queue */
 } semd_t;
 
+typedef struct support_t
+{
+	// leaving it as an empty struct for now
+} support_t;
+
 #endif
  

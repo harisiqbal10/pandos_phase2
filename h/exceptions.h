@@ -19,14 +19,14 @@
 extern void exceptionHandler();
 
 extern void syscallHandler();
-extern void sysCreateProcess(); 
+extern int  sysCreateProcess(); 
 extern void sysTerminate();
 extern void sysPasseren();
 extern void sysVerhogen();
 extern void sysWaitIO();
 extern void sysGetCPUTime();
 extern void sysWaitClock();
-extern void sysGetSupportPTR();
+extern void *sysGetSupportPTR();
 
 extern void inturruptHandler(); /* to be implemented in inturrupts.c */
 extern void programTrapHandler();

@@ -13,7 +13,7 @@
 
 #include "../h/types.h"
 
-#define NUM_DEVICES (DEVINTNUM * DEVPERINT) /* 40 total device semaphores */
+#define NUM_DEVICES ((4 * DEVPERINT) + (2 * DEVPERINT)) /* 48 semaphores */
 
 /* Global Variables */
 extern int processCount;                  
