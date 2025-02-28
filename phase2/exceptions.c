@@ -111,9 +111,9 @@ void syscallHandler(state_t *savedState)
     LDST(savedState);
 }
 
-/** creates a process with the processor state in a1
- *  if a new process cannot be created an error code is
- *  returned in v0 
+/** 
+ * Creates a new process with the provided processor state.
+ * Inserts the process into the Ready Queue and sets its parent.
  */
 int sysCreateProcess(state_t *statep, support_t *supportp)
 {
@@ -143,12 +143,8 @@ int sysCreateProcess(state_t *statep, support_t *supportp)
 }
 
 /**
- * Recursively terminates a process and all its progeny.
- * - Removes the process from the process tree.
- * - Recursively calls itself on child processes.
- * - Removes the process from any queues.
- * - If the process is blocked on a semaphore, it adjusts the semaphore count.
- * - Frees the PCB.
+ * Terminates a process and all its progeny recursively.
+ * Ensures proper cleanup of semaphores and process tree.
  */
 void sysTerminate(pcb_t *p)
 {
@@ -203,8 +199,9 @@ void sysTerminate(pcb_t *p)
     }
 }
 
-/** performs the P opperation (wait) on the semaphore
- *  with the address stored in a1 
+/** 
+ * Performs the P operation on the given semaphore. 
+ * Blocks the process if necessary and calls the scheduler.
  */
 void sysPasseren(int *semaddr)
 {
@@ -229,8 +226,9 @@ void sysPasseren(int *semaddr)
     }
 }
 
-/** performs the V opperation (signal) on the semaphore
- *  with the address stored in a1 
+/** 
+ * Performs the V operation on the given semaphore.
+ * Unblocks one waiting process, if any.
  */
 void sysVerhogen(int *semAddr)
 {
@@ -246,9 +244,10 @@ void sysVerhogen(int *semAddr)
     }
 }
 
-/** transitions the current process from running to blocked:
- *  performs a P opperation on the semaphore for the IO device
- *  updates CPU time and state, insertBlocked, and calls scheduler 
+/** 
+ * Transitions the current process from running to blocked:
+ * performs a P opperation on the semaphore for the IO device.
+ * Updates CPU time and state, insertBlocked, and calls scheduler.
  */
 void sysWaitIO(int intLineNo, int devNum, int waitForTermRead)
 {
@@ -280,7 +279,9 @@ void sysWaitIO(int intLineNo, int devNum, int waitForTermRead)
     scheduler();
 }
 
-/** accumulated processor time of a process is placed in the callers v0 */
+/** 
+ * Retrieves the accumulated CPU time for the current process. 
+*/
 void sysGetCPUTime(state_t *savedState)
 {
     cpu_t currentTOD;
@@ -290,9 +291,10 @@ void sysGetCPUTime(state_t *savedState)
     savedState->s_v0 = currentProcess->p_time + (currentTOD - currentProcess->p_startTOD);
 }
 
-/** performs a P opperation on the nucleus maintained pseudoclock
- *  semaphore. Blocks the current process on the ASL, calls the
- *  scheduler. 
+/** 
+ * Performs a P opperation on the nucleus maintained pseudoclock
+ * semaphore. Blocks the current process on the ASL, calls the
+ * scheduler. 
  */
 void sysWaitClock()
 {
@@ -310,21 +312,17 @@ void sysWaitClock()
     scheduler();
 }
 
-/** gets a pointer to the current process's support structure
- *  if no value for p_supportStruct was provided when the
- *  current process was created, return NULL 
+/**
+ * Returns the support structure pointer of the current process.
  */
 void *sysGetSupportPTR()
 {
-    /* Return the support structure pointer of the Current Process */
     return currentProcess->p_supportStruct;
 }
 
 /**
- * Handles program trap exceptions.
- * These include bus errors, reserved instruction errors, and overflow exceptions.
- * Any process causing a trap is terminated.
- */
+ * Handles program traps, terminating the offending process.
+*/
 void programTrapHandler(state_t *savedState)
 {
     sysTerminate(currentProcess);
@@ -333,13 +331,15 @@ void programTrapHandler(state_t *savedState)
 
 /**
  * Handles TLB exceptions.
- * This is a placeholder function since TLB handling is typically implemented in later phases.
  */
 void TLBExceptionHandler()
 {
-    PANIC(); /* Not implemented in this phase */
+    PANIC(); 
 }
 
+/**
+ * Updates the CPU time for the current process.
+ */
 void updateCPUTime()
 {
     unsigned int currentTOD; /* TOD clock value */
