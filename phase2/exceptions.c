@@ -2,7 +2,6 @@
 #include "../h/pcb.h"
 #include "../h/asl.h"
 #include "../h/const.h"
-#include "../h/types.h"
 #include "../h/scheduler.h"
 #include "../h/initial.h"
 
