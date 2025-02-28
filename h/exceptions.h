@@ -12,9 +12,6 @@
  */
 
 #include "../h/types.h"
-#include "../h/const.h"
-#include "../h/pcb.h"
-#include "../h/asl.h"
 
 extern void exceptionHandler();
 
@@ -28,7 +25,6 @@ extern void sysGetCPUTime();
 extern void sysWaitClock();
 extern void *sysGetSupportPTR();
 
-extern void inturruptHandler(); /* to be implemented in inturrupts.c */
 extern void programTrapHandler();
 extern void TLBExceptionHandler();
 
