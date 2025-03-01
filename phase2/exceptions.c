@@ -264,18 +264,17 @@ void sysWaitIO(int intLineNo, int devNum, int waitForTermRead)
         deviceIndex = (intLineNo - 3) * DEVPERINT + devNum;
     }
 
-    /* Update CPU time */
-    updateCPUTime();
+    int *semaddr = deviceSemaphores[deviceIndex];
 
-    /* Save process state */
-    memcpy(&(currentProcess->p_s), (state_t *)BIOSDATAPAGE, sizeof(state_t));
+    /*semaddr should never be less than 0 in a SYS5 */
+    if (&semaddr <0){
+        PANIC();
+    }
 
-    /* Block the process and add it to the semaphore queue */
-    currentProcess->p_semAdd = &deviceSemaphores[deviceIndex];
-    insertBlocked(&deviceSemaphores[deviceIndex], currentProcess);
+    /* Perform a P() opperation on the device semaphore */
+    sysPasseren(semaddr);
 
-    /* Call scheduler */
-    scheduler();
+    /* should be blocked in sysPasseren, which calls the scheduler */
 }
 
 /** 
