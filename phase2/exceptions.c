@@ -264,7 +264,7 @@ void sysWaitIO(int intLineNo, int devNum, int waitForTermRead)
         deviceIndex = (intLineNo - 3) * DEVPERINT + devNum;
     }
 
-    int *semaddr = deviceSemaphores[deviceIndex];
+    int *semaddr = &deviceSemaphores[deviceIndex];
 
     /*semaddr should never be less than 0 in a SYS5 */
     if (&semaddr <0){
@@ -296,18 +296,11 @@ void sysGetCPUTime(state_t *savedState)
  */
 void sysWaitClock()
 {
-    /* Update CPU time */
-    updateCPUTime();
+    /* get the address of the nucleus maintained pseudo clock semaphore */
+    int *semaddr = &deviceSemaphores[NUM_DEVICES]; 
 
-    /* Save process state */
-    memcpy(&(currentProcess->p_s), (state_t *)BIOSDATAPAGE, sizeof(state_t));
+    sysPasseren(semaddr);
 
-    /* Block the process and add it to the pseudo-clock semaphore queue */
-    currentProcess->p_semAdd = &deviceSemaphores[NUM_DEVICES];
-    insertBlocked(&deviceSemaphores[NUM_DEVICES], currentProcess);
-
-    /* Call scheduler */
-    scheduler();
 }
 
 /**
