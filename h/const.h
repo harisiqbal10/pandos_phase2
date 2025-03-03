@@ -43,6 +43,7 @@
 
 
 #define CAUSEMASK 0x0000007C /* Mask to extract ExcCode from Cause register */
+#define IPMASK 0x0000FF00    /* Mask to extract Interrupts Pending from Cause register */
 #define RESVINSTR 10         /* Reserved Instruction (RI) Exception Code */
 #define CAUSEINTOFFS 2       /* ExcCode field starts at bit 2 */
 
