@@ -85,7 +85,7 @@ void syscallHandler(state_t *savedState)
         break;
     case WAITIO:
         /* Block process waiting for I/O */
-        sysWaitIO(savedState->s_a1, savedState->s_a2, savedState->s_a3);
+        sysWaitIO(savedState, savedState->s_a1, savedState->s_a2, savedState->s_a3);
         break;
     case GETCPUTIME:
         /* Return accumulated CPU time */
@@ -248,7 +248,7 @@ void sysVerhogen(int *semAddr)
  * performs a P opperation on the semaphore for the IO device.
  * Updates CPU time and state, insertBlocked, and calls scheduler.
  */
-void sysWaitIO(int intLineNo, int devNum, int waitForTermRead)
+void sysWaitIO(state_t *savedState, int intLineNo, int devNum, int waitForTermRead)
 {
     int deviceIndex;
 
@@ -264,18 +264,13 @@ void sysWaitIO(int intLineNo, int devNum, int waitForTermRead)
         deviceIndex = (intLineNo - 3) * DEVPERINT + devNum;
     }
 
-    /* Update CPU time */
-    updateCPUTime();
+    int *semaddr = &deviceSemaphores[deviceIndex];
 
-    /* Save process state */
-    memcpy(&(currentProcess->p_s), (state_t *)BIOSDATAPAGE, sizeof(state_t));
+    /* Perform P operation on the device semaphore (blocks if necessary) */
+    sysPasseren(semaddr);
 
-    /* Block the process and add it to the semaphore queue */
-    currentProcess->p_semAdd = &deviceSemaphores[deviceIndex];
-    insertBlocked(&deviceSemaphores[deviceIndex], currentProcess);
-
-    /* Call scheduler */
-    scheduler();
+    /* Process should be blocked now; once unblocked, store device status */
+    savedState->s_v0 = ((device_t *)DEV_REG_ADDR(intLineNo, devNum))->d_status;
 }
 
 /** 
@@ -300,15 +295,8 @@ void sysWaitClock()
     /* Update CPU time */
     updateCPUTime();
 
-    /* Save process state */
-    memcpy(&(currentProcess->p_s), (state_t *)BIOSDATAPAGE, sizeof(state_t));
-
-    /* Block the process and add it to the pseudo-clock semaphore queue */
-    currentProcess->p_semAdd = &deviceSemaphores[NUM_DEVICES];
-    insertBlocked(&deviceSemaphores[NUM_DEVICES], currentProcess);
-
-    /* Call scheduler */
-    scheduler();
+    /* Perform P() operation on the pseudo-clock semaphore */
+    sysPasseren(&deviceSemaphores[NUM_DEVICES]);
 }
 
 /**
