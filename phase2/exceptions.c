@@ -265,7 +265,6 @@ void sysWaitIO(state_t *savedState, int intLineNo, int devNum, int waitForTermRe
     }
 
     int *semaddr = &deviceSemaphores[deviceIndex];
-    int *semaddr = &deviceSemaphores[deviceIndex];
 
     /* Perform P operation on the device semaphore (blocks if necessary) */
     sysPasseren(semaddr);
