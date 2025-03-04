@@ -119,7 +119,7 @@ typedef struct pcb_t
 	int *p_semAdd; /* Pointer to semaphore on which process is blocked */
 
 	/* Support layer information */
-	void *p_supportStruct; /* Pointer to support struct */
+	support_t *p_supportStruct; /* Pointer to support struct */
 
 } pcb_t, *pcb_PTR;
 
@@ -131,10 +131,25 @@ typedef struct semd_t
 	pcb_t *s_procQ;		   /* Tail pointer to a process queue */
 } semd_t;
 
+/* Context structure for exception handling */
+typedef struct context_t
+{
+	unsigned int c_stackPtr; /* Stack Pointer */
+	unsigned int c_status;	 /* Status Register */
+	unsigned int c_pc;		 /* Program Counter */
+} context_t;
+
+/* Support Structure */
 typedef struct support_t
 {
-	// leaving it as an empty struct for now
+	int sup_asid;					/* Process ID (ASID) */
+	state_t sup_exceptState[2];		/* Stored exception states */
+	context_t sup_exceptContext[2]; /* Pass up contexts */
 } support_t;
+
+/* Exception Type Constants */
+#define PGFAULTEXCEPT 0 /* Page Fault Exception */
+#define GENERALEXCEPT 1 /* General Exception */
 
 #endif
  

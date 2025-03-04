@@ -22,11 +22,13 @@ void exceptionHandler()
     case 0: /* External Device Interrupt */
         interruptHandler();
         break;
+
     case 1:
     case 2:
     case 3: /* TLB Exceptions */
-        TLBExceptionHandler();
+        passUpOrDie(PGFAULTEXCEPT);
         break;
+
     case 4:
     case 5:
     case 6:
@@ -35,11 +37,21 @@ void exceptionHandler()
     case 10:
     case 11:
     case 12: /* Program Traps */
-        programTrapHandler(savedState);
+        passUpOrDie(GENERALEXCEPT);
         break;
+
     case 8: /* SYSCALL */
-        syscallHandler(savedState);
+        /* Check if SYSCALL number is 9 or higher */
+        if (savedState->s_a0 >= 9)
+        {
+            passUpOrDie(GENERALEXCEPT);
+        }
+        else
+        {
+            syscallHandler(savedState);
+        }
         break;
+
     default:
         /* Undefined exception, terminate the process */
         sysTerminate(currentProcess);
@@ -312,8 +324,7 @@ void *sysGetSupportPTR()
 */
 void programTrapHandler(state_t *savedState)
 {
-    sysTerminate(currentProcess);
-    scheduler();
+    passUpOrDie(GENERALEXCEPT);
 }
 
 /**
@@ -321,7 +332,7 @@ void programTrapHandler(state_t *savedState)
  */
 void TLBExceptionHandler()
 {
-    PANIC(); 
+    passUpOrDie(PGFAULTEXCEPT);
 }
 
 /**
@@ -337,4 +348,27 @@ void updateCPUTime()
 
     /* Reset the start time for the next time slice */
     currentProcess->p_startTOD = currentTOD;
+}
+
+/** Handles Pass Up or Die mechanism for TLB exceptions, program traps, and SYSCALLs >= 9.
+ *  If the current process has a support structure, it passes the exception to the support level.
+ *  Otherwise, the process and all its progeny are terminated.
+ */
+void passUpOrDie(int exceptType)
+{
+    /* Check if the current process has a support structure */
+    if (currentProcess->p_supportStruct == NULL)
+    {
+        /* No support structure, terminate the process and its children */
+        sysTerminate(currentProcess);
+        scheduler(); /* Call scheduler after termination */
+    }
+
+    /* Copy the saved exception state to the appropriate support structure field */
+    currentProcess->p_supportStruct->sup_exceptState[exceptType] = *(state_t *)BIOSDATAPAGE;
+
+    /* Load the exception handler's context */
+    LDCXT(currentProcess->p_supportStruct->sup_exceptContext[exceptType].c_stackPtr,
+          currentProcess->p_supportStruct->sup_exceptContext[exceptType].c_status,
+          currentProcess->p_supportStruct->sup_exceptContext[exceptType].c_pc);
 }
