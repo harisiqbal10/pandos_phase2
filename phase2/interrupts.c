@@ -5,9 +5,10 @@
 #include "../h/scheduler.h"
 #include "../h/initial.h"
 #include "../h/interrupts.h"
- 
-/** Handles interrupt exceptions by passing control to the handler
- *  of the highest priority interrupt 
+
+/**
+ * Handles external interrupts by identifying the highest-priority pending interrupt
+ * and delegating processing to the appropriate handler before restoring execution state.
  */
 void interruptHandler()
 {
@@ -46,8 +47,9 @@ void interruptHandler()
     LDST(savedState);
 }
 
-/** handles interrupts from the PLT meaning that the current process's 
- *  Quantum has expired 
+/**
+ * Handles PLT interrupts by reloading the timer, saving the process state, updating CPU time,
+ * moving the process to the Ready Queue, and invoking the scheduler.
  */
 void handlePLTInterrupt(){
     /* Acknowledge the PLT interrupt by reloading the timer */
@@ -66,8 +68,9 @@ void handlePLTInterrupt(){
     scheduler();
 }
 
-/** Handles interval timer (pseudo-clock) interrupts and unblocks all processes
- *  waiting for the pseudo-clock tick 
+/**
+ * Handles Interval Timer interrupts by reloading the timer, unblocking all processes
+ * waiting on the Pseudo-clock semaphore, resetting the semaphore, and restoring execution.
  */
 void handleIntervalTimerInterrupt()
 {
@@ -100,7 +103,10 @@ void handleIntervalTimerInterrupt()
     }
 }
 
-/** handles the interrupts by the completion of an I/O oppperation */
+/**
+ * Handles device interrupts by identifying the highest-priority device, saving its status,
+ * acknowledging the interrupt, unblocking any waiting process, and restoring execution.
+ */
 void handleDeviceInterrupt(int intLine)
 {
     /* Determine which device caused the interrupt */
