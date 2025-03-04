@@ -10,7 +10,7 @@
  *  of the highest priority interrupt */
 void interruptHandler(){
 
-    /*determine which interrupt is of highest priority*/
+    /*determine which interrupt is of highest priority */
     int IPline = getHighestPriorityInterrupt();
     
     switch(IPline)
@@ -93,7 +93,7 @@ int getHighestPriorityInterrupt(){
 
     /* interrupt lines with pending interrupts is in cause register */
     /* Extract the interrupt code from the Cause register */
-    int IPCode = (savedState->s_cause & IPMASK) >> 8;
+    int IPCode = (savedState->s_cause & IM) >> 8;
 
     if (IPCode == 0) {
         return -1; /* No set bit found, no inturrupt lines on */
@@ -112,5 +112,10 @@ int getHighestPriorityInterrupt(){
 /** returns the device number of highest priority with a pending interrupt */
 int getHighestPriorityDevice(int intLine){
     /* the lowest device number with an interrupt is the highest priority */
+    int wordNum = intLine - 3;
+
+    int *bitmap = BITMAPADD + (WORDLEN * wordNum);
+    int devices = &bitmap;
+    
 
 }

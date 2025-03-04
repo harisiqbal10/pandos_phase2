@@ -43,7 +43,6 @@
 
 
 #define CAUSEMASK 0x0000007C /* Mask to extract ExcCode from Cause register */
-#define IPMASK 0x0000FF00    /* Mask to extract Interrupts Pending from Cause register */
 #define RESVINSTR 10         /* Reserved Instruction (RI) Exception Code */
 #define CAUSEINTOFFS 2       /* ExcCode field starts at bit 2 */
 
@@ -58,6 +57,7 @@
 #define DEVPERINT		  8		  /* devices per interrupt line */
 #define DEVREGLEN		  4		  /* device register field length in bytes, and regs per dev */	
 #define DEVREGSIZE	  16 		/* device register size in bytes */
+#define BITMAPADD         0x10000040 /*physical address for the device bit map */
 
 /* device register field number for non-terminal devices */
 #define STATUS			  0
