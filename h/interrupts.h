@@ -14,12 +14,12 @@
 #include "../h/types.h"
 
 
-void interruptHandler();
-void handlePLTInterrupt();
-void handleIntervalTimerInterrupt();
-void handleDeviceInterrupt(int intLine);
-int getHighestPriorityInterrupt();
-int getHighestPriorityDevice(int intLine);
+extern void interruptHandler();
+extern void handlePLTInterrupt();
+extern void handleIntervalTimerInterrupt();
+extern void handleDeviceInterrupt(int intLine);
+extern int getHighestPriorityInterrupt();
+extern int getHighestPriorityDevice(int intLine);
 
 /*******************************************************************/
 

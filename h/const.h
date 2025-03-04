@@ -44,6 +44,7 @@
 
 #define CAUSEMASK 0x0000007C /* Mask to extract ExcCode from Cause register */
 #define IPMASK 0x0000FF00    /* Mask to extract Interrupts Pending from Cause register */
+#define IPSHIFT 8            /* IP bits start at bit 8 */
 #define RESVINSTR 10         /* Reserved Instruction (RI) Exception Code */
 #define CAUSEINTOFFS 2       /* ExcCode field starts at bit 2 */
 
@@ -79,6 +80,8 @@
 /* device common COMMAND codes */
 #define RESET			    0
 #define ACK				    1
+#define DEV_REG_ADDR(intLine, devNum) ((device_t *)(0x10000054 + ((intLine - 3) * 0x80) + (devNum * 0x10)))
+#define INTDEVBITMAP_ADDR(intLine) ((unsigned int *)(0x10000040 + ((intLine - 3) * 0x04)))
 
 /* Memory related constants */
 #define KSEG0           0x00000000

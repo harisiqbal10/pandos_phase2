@@ -5,112 +5,206 @@
 #include "../h/scheduler.h"
 #include "../h/initial.h"
 #include "../h/interrupts.h"
-
+ 
 /** Handles interrupt exceptions by passing control to the handler
- *  of the highest priority interrupt */
-void interruptHandler(){
-
-    /*determine which interrupt is of highest priority*/
-    int IPline = getHighestPriorityInterrupt();
-    
-    switch(IPline)
-    {
-    case 0: /* line 0 can be ignored */
-        break;
-    case 1: /* line 1 is PLT */
-        handlePLTInterrupt();
-        break;
-    case 2: /* line 2 is interval timer */
-        handleIntervalTimerInterrupt();
-        break;
-    case 3:
-    case 4:
-    case 5:
-    case 6:
-    case 7: /* for lines 3-7 there is a bit map for which devices on the line have interrupts */
-    handleDeviceInterrupt(IPline);
-
-    }
-
-
-}
-
-/** handles interrupts from the PLT meaning that the current process's 
- *  Quantum has expired */
-void handlePLTInterrupt(){
-    /* acknowledge the interrupt by loading the timer with a new value */
-
-    /* copy the processor state at the time of exception into PCBs p_s */
-    /* from BIOS data page - make this a deep copy 8?
-
-    /* update CPU time */
-
-    /* place process on the ready Q */
-
-    /* schedule the next process */
-
-}
-
-/** handles interrupts from the pseudo clock, meaning that it is time to
- *  perform a P() operation on the pseudo clock */
-void handleIntervalTimerInterrupt(){
-    /* acknowledge interrupt by loading interval timer with 100 milliseconds */
-
-    /* unblock ALL PCBs on pseudo clock semaphore */
-
-    /* reset pseudo clock semaphore to 0 */
-
-    /* return control to current process */
-
-}
-
-/** handles the interrupts by the completion of an I/O oppperation */
-void handleDeviceInterrupt(int intLine){
-    /* calculate the address of this device's device register */
-    int highestDevice = getHighestPriorityDevice(intLine);
-
-    /* save off the status code */
-
-    /* acknowledge the inturrup with ACK command */
-
-    /* perform a V() on the semaphore associated with this sub-device */
-    /* this should unblock the PCB */
-    /* if it returns NULL, return control to current process */
-
-    /* place the saved status code in the v0 of newly unblocked PCB */
-
-    /* insert the PCB on the ready Q */
-
-    /* return control to current process */
-
-}
-
-/** returns the interrupt line of highest priority with a pending interrupt */
-int getHighestPriorityInterrupt(){
-
+ *  of the highest priority interrupt 
+ */
+void interruptHandler()
+{
     /* Get the saved state from the BIOS Data Page */
     state_t *savedState = (state_t *)BIOSDATAPAGE;
 
-    /* interrupt lines with pending interrupts is in cause register */
-    /* Extract the interrupt code from the Cause register */
-    int IPCode = (savedState->s_cause & IPMASK) >> 8;
+    /* Determine the highest priority pending interrupt */
+    int intLine = getHighestPriorityInterrupt(savedState->s_cause);
 
-    if (IPCode == 0) {
-        return -1; /* No set bit found, no inturrupt lines on */
+    switch (intLine)
+    {
+    case 0: /* Line 0 is ignored */
+        break;
+
+    case 1: /* Processor Local Timer (PLT) Interrupt (Highest Priority) */
+        handlePLTInterrupt();
+        break;
+
+    case 2: /* Interval Timer Interrupt */
+        handleIntervalTimerInterrupt();
+        break;
+
+    case 3: /* Disk Interrupt */
+    case 4: /* Flash Interrupt */
+    case 5: /* Network Interrupt */
+    case 6: /* Printer Interrupt */
+    case 7: /* Terminal Interrupt */
+        handleDeviceInterrupt(intLine);
+        break;
+
+    default:
+        PANIC(); /* This should never happen */
     }
 
-    /* find the lowest set bit in the IP code */    
-    int line = 0;
-    while ((IPCode & 1) == 0) {
-        IPCode >>= 1;
-        line++;
-    }
-    return line;
-
+    /* Restore the interrupted process */
+    LDST(savedState);
 }
 
-/** returns the device number of highest priority with a pending interrupt */
-int getHighestPriorityDevice(int intLine){
-    /* the lowest device number with an interrupt is the highest priority */
+/** handles interrupts from the PLT meaning that the current process's 
+ *  Quantum has expired 
+ */
+void handlePLTInterrupt(){
+    /* Acknowledge the PLT interrupt by reloading the timer */
+    LDIT(5000); /* Load Interval Timer with 5ms */
 
+    /* Save process state */
+    memcpy(&(currentProcess->p_s), (state_t *)BIOSDATAPAGE, sizeof(state_t));
+
+    /* Update CPU time */
+    updateCPUTime();
+
+    /* Move the process to the Ready Queue */
+    insertProcQ(&readyQueue, currentProcess);
+
+    /* Call the Scheduler */
+    scheduler();
+}
+
+/** Handles interval timer (pseudo-clock) interrupts and unblocks all processes
+ *  waiting for the pseudo-clock tick 
+ */
+void handleIntervalTimerInterrupt()
+{
+    /* Acknowledge the Interval Timer interrupt by reloading the timer */
+    LDIT(CLOCKINTERVAL); /* Reload Interval Timer with 100ms */
+
+    /* Unblock all processes waiting on the Pseudo-clock semaphore */
+    while (headBlocked(&deviceSemaphores[NUM_DEVICES]) != NULL) 
+    {
+        pcb_t *unblockedProcess = removeBlocked(&deviceSemaphores[NUM_DEVICES]);
+        if (unblockedProcess != NULL)
+        {
+            insertProcQ(&readyQueue, unblockedProcess); /* Move process to Ready Queue */
+        }
+    }
+
+    /* Reset the Pseudo-clock semaphore to 0 */
+    deviceSemaphores[NUM_DEVICES] = 0;
+
+    /* Restore execution state (LDST to return control) */
+    if (currentProcess != NULL)
+    {
+        state_t *savedState = (state_t *)BIOSDATAPAGE;
+        LDST(savedState);
+    }
+    else
+    {
+        /* If no process is running, call the Scheduler */
+        scheduler();
+    }
+}
+
+/** handles the interrupts by the completion of an I/O oppperation */
+void handleDeviceInterrupt(int intLine)
+{
+    /* Determine which device caused the interrupt */
+    int devNum = getHighestPriorityDevice(intLine); /* Find highest priority device on this line */
+
+    /* Compute the device register address */
+    device_t *deviceReg = DEV_REG_ADDR(intLine, devNum);
+
+    /* Save the device's status register value */
+    unsigned int status = deviceReg->d_status;
+
+    /* Acknowledge the interrupt by writing ACK to the command register */
+    if (intLine == TERMINT)
+    {
+        if (status & 0xFF) /* If low byte is non-zero, it's a Transmitter interrupt */
+        {
+            deviceReg->t_transm_command = ACK;
+        }
+        else /* Otherwise, it's a Receiver interrupt */
+        {
+            deviceReg->t_recv_command = ACK;
+        }
+    }
+    else
+    {
+        deviceReg->d_command = ACK;
+    }
+
+    /* Compute the index in the deviceSemaphores array */
+    int deviceIndex;
+    if (intLine == TERMINT)
+    {
+        /* Terminal devices have two sub-devices (Receiver and Transmitter) */
+        int isTransmitter = (status & 0xFF) ? 1 : 0; /* 1 for Transmitter, 0 for Receiver */
+        deviceIndex = (4 * DEVPERINT) + (devNum * 2) + isTransmitter;
+    }
+    else
+    {
+        /* Other devices use normal indexing */
+        deviceIndex = (intLine - 3) * DEVPERINT + devNum;
+    }
+
+    /* Perform a V operation on the corresponding semaphore */
+    pcb_t *unblockedProcess = removeBlocked(&deviceSemaphores[deviceIndex]);
+
+    if (unblockedProcess != NULL)
+    {
+        /* Store the device's status register value in v0 of the unblocked process */
+        unblockedProcess->p_s.s_v0 = status;
+
+        /* Move the unblocked process to the Ready Queue */
+        insertProcQ(&readyQueue, unblockedProcess);
+    }
+
+    /* If there's no current process, call the scheduler */
+    if (currentProcess == NULL)
+    {
+        scheduler();
+    }
+    else
+    {
+        /* Return control to the Current Process */
+        LDST((state_t *)BIOSDATAPAGE);
+    }
+}
+
+/**
+ * Determines the highest-priority pending interrupt.
+ * Reads Cause.IP and finds the lowest-numbered interrupt line that is active.
+ */
+int getHighestPriorityInterrupt(unsigned int cause)
+{
+    /* Extract and shift IP bits into correct position */
+    unsigned int pendingInterrupts = (cause & IPMASK) >> IPSHIFT;
+
+    /* Find the lowest active interrupt line */
+    for (int i = 1; i <= 7; i++)
+    {
+        if (pendingInterrupts & (1 << i))
+        {
+            return i; /* Return first (highest priority) interrupt line */
+        }
+    }
+    return -1; /* No interrupt found */
+}
+
+/** Returns the device number of the highest-priority device with a pending interrupt */
+int getHighestPriorityDevice(int intLine)
+{
+    /* Read the Interrupting Devices Bit Map for this line */
+    unsigned int deviceBitmap = *INTDEVBITMAP_ADDR(intLine);
+
+    if (deviceBitmap == 0)
+    {
+        return -1; /* No devices have pending interrupts */
+    }
+
+    /* Find the lowest set bit (highest priority device) */
+    int devNum = 0;
+    while ((deviceBitmap & 1) == 0)
+    {
+        deviceBitmap >>= 1;
+        devNum++;
+    }
+
+    return devNum; /* Return first active device */
 }
