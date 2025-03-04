@@ -116,6 +116,18 @@ int getHighestPriorityDevice(int intLine){
 
     int *bitmap = BITMAPADD + (WORDLEN * wordNum);
     int devices = &bitmap;
-    
+    devices = (devices & MAPMASK);
+
+    if (devices == 0) {
+        return -1; /* No set bit found, no devices inturrupt lines on */
+    }
+
+    /* find the lowest set bit in the device map */    
+    int line = 0;
+    while ((devices & 1) == 0) {
+        devices >>= 1;
+        line++;
+    }
+    return line;
 
 }

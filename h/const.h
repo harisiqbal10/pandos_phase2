@@ -58,6 +58,7 @@
 #define DEVREGLEN		  4		  /* device register field length in bytes, and regs per dev */	
 #define DEVREGSIZE	  16 		/* device register size in bytes */
 #define BITMAPADD         0x10000040 /*physical address for the device bit map */
+#define MAPMASK           0x000000FF /*mask to get just the device mapping of the bit map word */
 
 /* device register field number for non-terminal devices */
 #define STATUS			  0
