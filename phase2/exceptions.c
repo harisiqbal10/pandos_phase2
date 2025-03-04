@@ -1,4 +1,5 @@
 #include "../h/exceptions.h"
+#include "../h/interrupts.h"
 #include "../h/pcb.h"
 #include "../h/asl.h"
 #include "../h/const.h"
