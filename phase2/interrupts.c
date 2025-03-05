@@ -183,7 +183,8 @@ int getHighestPriorityInterrupt(unsigned int cause)
     unsigned int pendingInterrupts = (cause & IPMASK) >> IPSHIFT;
 
     /* Find the lowest active interrupt line */
-    for (int i = 1; i <= 7; i++)
+    int i;
+    for (i = 1; i <= 7; i++)
     {
         if (pendingInterrupts & (1 << i))
         {

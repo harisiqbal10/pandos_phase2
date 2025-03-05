@@ -44,7 +44,8 @@ void initNucleus()
     initASL();  
 
     /* Initialize Nucleus variables */
-    for (int i = 0; i < NUM_DEVICES + 1; i++)
+    int i;
+    for (i = 0; i < NUM_DEVICES + 1; i++)
     {
         deviceSemaphores[i] = 0;
     }

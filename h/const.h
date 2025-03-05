@@ -41,12 +41,11 @@
 
 #define RAMTOP 0x20001000 /* Top of RAM for stack initialization */
 
-
-#define CAUSEMASK 0x0000007C /* Mask to extract ExcCode from Cause register */
+#define CAUSEMASK 0xFF       /* Mask to extract ExcCode from Cause register */
 #define IPMASK 0x0000FF00    /* Mask to extract Interrupts Pending from Cause register */
 #define IPSHIFT 8            /* IP bits start at bit 8 */
 #define RESVINSTR 10         /* Reserved Instruction (RI) Exception Code */
-#define CAUSEINTOFFS 2       /* ExcCode field starts at bit 2 */
+#define CAUSEINTOFFS 10       /* ExcCode field starts at bit 10 */
 
 /* device interrupts */
 #define DISKINT			  3

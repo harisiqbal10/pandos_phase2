@@ -99,6 +99,22 @@ typedef struct state_t {
 #define s_HI	s_reg[29]
 #define s_LO	s_reg[30]
 
+/* Context structure for exception handling */
+typedef struct context_t
+{
+	unsigned int c_stackPtr; /* Stack Pointer */
+	unsigned int c_status;	 /* Status Register */
+	unsigned int c_pc;		 /* Program Counter */
+} context_t;
+
+/* Support Structure */
+typedef struct support_t
+{
+	int sup_asid;					/* Process ID (ASID) */
+	state_t sup_exceptState[2];		/* Stored exception states */
+	context_t sup_exceptContext[2]; /* Pass up contexts */
+} support_t;
+
 /* Process Control Block Type */
 typedef struct pcb_t
 {
@@ -131,21 +147,6 @@ typedef struct semd_t
 	pcb_t *s_procQ;		   /* Tail pointer to a process queue */
 } semd_t;
 
-/* Context structure for exception handling */
-typedef struct context_t
-{
-	unsigned int c_stackPtr; /* Stack Pointer */
-	unsigned int c_status;	 /* Status Register */
-	unsigned int c_pc;		 /* Program Counter */
-} context_t;
-
-/* Support Structure */
-typedef struct support_t
-{
-	int sup_asid;					/* Process ID (ASID) */
-	state_t sup_exceptState[2];		/* Stored exception states */
-	context_t sup_exceptContext[2]; /* Pass up contexts */
-} support_t;
 
 /* Exception Type Constants */
 #define PGFAULTEXCEPT 0 /* Page Fault Exception */

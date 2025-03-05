@@ -28,6 +28,7 @@ extern void *sysGetSupportPTR();
 extern void programTrapHandler();
 extern void TLBExceptionHandler();
 extern void updateCPUTime();
+extern void passUpOrDie(int exceptType);
 
 /******************************************************************/
 

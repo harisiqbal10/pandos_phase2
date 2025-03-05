@@ -12,6 +12,8 @@
  */
 
 #include "../h/types.h"
+#include <umps3/umps/libumps.h>
+#include <string.h>
 
 #define NUM_DEVICES ((4 * DEVPERINT) + (2 * DEVPERINT)) /* 48 semaphores */
 
@@ -19,8 +21,8 @@
 extern int processCount;                  
 extern int softBlockCount;                
 extern pcb_PTR readyQueue;               
-extern pcb_PTR currentProcess;            
-extern int deviceSemaphores[NUM_DEVICES]; 
+extern pcb_PTR currentProcess;
+extern int deviceSemaphores[NUM_DEVICES + 1];
 
 /* Function Prototypes */
 extern void initNucleus();

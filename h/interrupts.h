@@ -13,7 +13,6 @@
 
 #include "../h/types.h"
 
-
 extern void interruptHandler();
 extern void handlePLTInterrupt();
 extern void handleIntervalTimerInterrupt();
