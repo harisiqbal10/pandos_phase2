@@ -101,16 +101,3 @@ void createProcess()
     processCount++; /* Increment process count */
 }
 
-/**
- * Handles TLB Refill Events.
- * - Sets ENTRYHI and ENTRYLO to zero.
- * - Writes the TLB entry.
- * - Loads the processor state from BIOS Data Page (0x0FFFF000).
- */
-void uTLB_RefillHandler()
-{
-    setENTRYHI(0x80000000);        /* Set ENTRYHI */
-    setENTRYLO(0x00000000);        /* Set ENTRYLO */
-    TLBWR();                       /* Write the TLB entry */
-    LDST((state_PTR)BIOSDATAPAGE); /* Load processor state from BIOS page */
-}
