@@ -25,7 +25,7 @@ extern pcb_PTR currentProcess;
 extern int deviceSemaphores[NUM_DEVICES + 1];
 
 /* Function Prototypes */
-extern void initNucleus();
+extern void main();
 extern void createProcess();
 extern void uTLB_RefillHandler(); 
 

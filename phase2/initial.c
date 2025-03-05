@@ -20,7 +20,7 @@ extern void test();
  * - Sets up the Pass Up Vector
  * - Prepares exception and TLB refill handlers
  */
-void initNucleus()
+void main()
 {
     /* Initialize Global Variables */
     processCount = 0;                       
