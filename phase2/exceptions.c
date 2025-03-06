@@ -27,7 +27,7 @@ void exceptionHandler()
     case 1:
     case 2:
     case 3: /* TLB Exceptions */
-        passUpOrDie(PGFAULTEXCEPT);
+        TLBExceptionHandler();
         break;
 
     case 4:
@@ -38,7 +38,7 @@ void exceptionHandler()
     case 10:
     case 11:
     case 12: /* Program Traps */
-        passUpOrDie(GENERALEXCEPT);
+        programTrapHandler();
         break;
 
     case 8: /* SYSCALL */
@@ -369,7 +369,7 @@ void passUpOrDie(int exceptType)
     memcopy(&(currentProcess->p_supportStruct->sup_exceptState[exceptType]),
             (state_t *)BIOSDATAPAGE,
             sizeof(state_t));
-            
+
     /* Load the exception handler's context */
     LDCXT(currentProcess->p_supportStruct->sup_exceptContext[exceptType].c_stackPtr,
           currentProcess->p_supportStruct->sup_exceptContext[exceptType].c_status,
