@@ -56,7 +56,7 @@ void handlePLTInterrupt(){
     LDIT(5000); /* Load Interval Timer with 5ms */
 
     /* Save process state */
-    memcpy(&(currentProcess->p_s), (state_t *)BIOSDATAPAGE, sizeof(state_t));
+    memcopy(&(currentProcess->p_s), (state_t *)BIOSDATAPAGE, sizeof(state_t));
 
     /* Update CPU time */
     updateCPUTime();

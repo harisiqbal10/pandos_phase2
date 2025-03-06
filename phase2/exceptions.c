@@ -227,7 +227,7 @@ void sysPasseren(int *semaddr)
     if (*semaddr < 0)
     {
         /* Save process state */
-        memcpy(&(currentProcess->p_s), (state_t *)BIOSDATAPAGE, sizeof(state_t));
+        memcopy(&(currentProcess->p_s), (state_t *)BIOSDATAPAGE, sizeof(state_t));
 
         /* Block current process and add it to the semaphore queue */
         currentProcess->p_semAdd = semaddr;
@@ -366,10 +366,22 @@ void passUpOrDie(int exceptType)
     }
 
     /* Copy the saved exception state to the appropriate support structure field */
-    currentProcess->p_supportStruct->sup_exceptState[exceptType] = *(state_t *)BIOSDATAPAGE;
-
+    memcopy(&(currentProcess->p_supportStruct->sup_exceptState[exceptType]),
+            (state_t *)BIOSDATAPAGE,
+            sizeof(state_t));
+            
     /* Load the exception handler's context */
     LDCXT(currentProcess->p_supportStruct->sup_exceptContext[exceptType].c_stackPtr,
           currentProcess->p_supportStruct->sup_exceptContext[exceptType].c_status,
           currentProcess->p_supportStruct->sup_exceptContext[exceptType].c_pc);
+}
+
+void memcopy(void *dest, const void *src, unsigned int n)
+{
+    char *d = (char *)dest;
+    const char *s = (const char *)src;
+    while (n--)
+    {
+        *d++ = *s++;
+    }
 }
