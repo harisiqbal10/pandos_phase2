@@ -137,6 +137,7 @@ int sysCreateProcess(state_t *statep, support_t *supportp)
     }
 
     /* Initialize process state from provided state pointer */
+    memcopy(&(newProcess->p_s), statep, sizeof(state_t));
     newProcess->p_s = *statep;
     newProcess->p_supportStruct = supportp; /* Set support structure (NULL if not provided) */
 
