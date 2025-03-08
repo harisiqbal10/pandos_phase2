@@ -232,7 +232,7 @@ void sysPasseren(int *semaddr)
         /* Block current process and add it to the semaphore queue */
         currentProcess->p_semAdd = semaddr;
         insertBlocked(semaddr, currentProcess);
-
+        currentProcess=NULL;
         /* Call the scheduler to select the next process */
         scheduler();
     }
@@ -264,7 +264,7 @@ void sysVerhogen(int *semAddr)
 void sysWaitIO(state_t *savedState, int intLineNo, int devNum, int waitForTermRead)
 {
     int deviceIndex;
-
+    /*need to increment soft block count */
     /* Compute the device index */
     if (intLineNo == TERMINT)
     {
@@ -278,6 +278,9 @@ void sysWaitIO(state_t *savedState, int intLineNo, int devNum, int waitForTermRe
     }
 
     int *semaddr = &deviceSemaphores[deviceIndex];
+
+    /* increment softBlockCount */
+    softBlockCount++;
 
     /* Perform P operation on the device semaphore (blocks if necessary) */
     sysPasseren(semaddr);
@@ -307,6 +310,9 @@ void sysWaitClock()
 {
     /* Update CPU time */
     updateCPUTime();
+
+    /* increment softBlockCount */
+    softBlockCount++;
 
     /* Perform P() operation on the pseudo-clock semaphore */
     sysPasseren(&deviceSemaphores[NUM_DEVICES]);
