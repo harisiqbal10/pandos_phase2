@@ -13,7 +13,6 @@
 
 #include "../h/types.h"
 #include <umps3/umps/libumps.h>
-#include <string.h>
 
 #define NUM_DEVICES ((4 * DEVPERINT) + (2 * DEVPERINT)) /* 48 semaphores */
 

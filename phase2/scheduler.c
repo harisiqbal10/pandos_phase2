@@ -23,14 +23,14 @@ void scheduler()
     currentProcess = removeProcQ(&readyQueue);
 
     debug(10, 0);
-    void * temp = ((void *)0xFFFFFFFF);
-    debug((int)currentProcess, temp);
+ 
+    debug((int)currentProcess, NULL);
 
     /* If no ready process exists, handle special cases */
-    if (currentProcess == temp)
+    if (currentProcess == NULL)
     {
 
-        debug( processCount, temp);
+        debug( processCount, NULL);
 
         if (processCount == 0)
         {
@@ -39,7 +39,7 @@ void scheduler()
         else if (softBlockCount > 0)
         {
             /* Wait for an I/O or timer interrupt */
-            debug(10, temp);
+            debug(10, NULL);
             setSTATUS(getSTATUS() | IEPBITON | KUPBITON | IM); /* Enable interrupts */
             WAIT();
         }
