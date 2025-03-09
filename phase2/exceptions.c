@@ -251,6 +251,13 @@ void sysVerhogen(int *semAddr)
 
     if (unblockedProcess != NULL)
     {
+        unblockedProcess->p_semAdd = NULL; /* Clear semaphore address */
+
+        /* If unblocking a soft-blocked process, decrement softBlockCount */
+        if (semAddr >= &deviceSemaphores[0] && semAddr <= &deviceSemaphores[NUM_DEVICES])
+        {
+            softBlockCount--;
+        }
         insertProcQ(&readyQueue, unblockedProcess); /* Move to Ready Queue */
     }
 }
@@ -281,11 +288,13 @@ void sysWaitIO(state_t *savedState, int intLineNo, int devNum, int waitForTermRe
     /* increment softBlockCount */
     softBlockCount++;
 
+    /* Process should be blocked now; once unblocked, store device status */
+    savedState->s_v0 = ((device_t *)DEV_REG_ADDR(intLineNo, devNum))->d_status;
+
     /* Perform P operation on the device semaphore (blocks if necessary) */
     sysPasseren(semaddr);
 
-    /* Process should be blocked now; once unblocked, store device status */
-    savedState->s_v0 = ((device_t *)DEV_REG_ADDR(intLineNo, devNum))->d_status;
+    
 }
 
 /** 
