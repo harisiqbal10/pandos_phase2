@@ -232,7 +232,6 @@ void sysPasseren(int *semaddr)
         /* Block current process and add it to the semaphore queue */
         currentProcess->p_semAdd = semaddr;
         insertBlocked(semaddr, currentProcess);
-        currentProcess=NULL;
         /* Call the scheduler to select the next process */
         scheduler();
     }
