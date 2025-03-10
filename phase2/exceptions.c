@@ -311,11 +311,11 @@ void sysWaitIO(state_t *savedState, int intLineNo, int devNum, int waitForTermRe
     /* increment softBlockCount */
     softBlockCount++;
 
-    /* Process should be blocked now; once unblocked, store device status */
-    savedState->s_v0 = ((device_t *)DEV_REG_ADDR(intLineNo, devNum))->d_status;
-
     /* Perform P operation on the device semaphore (blocks if necessary) */
     sysPasseren(semaddr);
+
+    /* Process should be blocked now; once unblocked, store device status */
+    savedState->s_v0 = ((device_t *)DEV_REG_ADDR(intLineNo, devNum))->d_status;
 }
 
 /**

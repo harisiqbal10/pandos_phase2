@@ -61,14 +61,18 @@ void handlePLTInterrupt()
     /* Acknowledge the PLT interrupt by reloading the timer */
     setTIMER(5000); /* Load PLT with 5ms */
 
-    /* Save process state */
-    memcopy(&(currentProcess->p_s), (state_t *)BIOSDATAPAGE, sizeof(state_t));
+    /* Check if there's a current process */
+    if (currentProcess != NULL)
+    {
+        /* Save process state */
+        memcopy(&(currentProcess->p_s), (state_t *)BIOSDATAPAGE, sizeof(state_t));
 
-    /* Update CPU time */
-    updateCPUTime();
+        /* Update CPU time */
+        updateCPUTime();
 
-    /* Move the process to the Ready Queue */
-    insertProcQ(&readyQueue, currentProcess);
+        /* Move the process to the Ready Queue */
+        insertProcQ(&readyQueue, currentProcess);
+    }
 
     /* Call the Scheduler */
     scheduler();

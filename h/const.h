@@ -38,6 +38,7 @@
 #define TEBITON 0x08000000   /* Local Timer Enable (bit 27) */
 #define ALLOFF 0x0           /* Disable all bits */
 #define IM 0x0000FF00        /* Interrupt Mask (bits 8-15) */
+#define IECON 0x1            /* Current Interrupt Enable bit (bit 0) */
 
 #define RAMTOP 0x20001000 /* Top of RAM for stack initialization */
 

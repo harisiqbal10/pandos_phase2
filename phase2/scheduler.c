@@ -27,7 +27,7 @@ void scheduler()
         else if (softBlockCount > 0)
         {
             /* Wait for an I/O or timer interrupt */
-            setSTATUS(getSTATUS() | IEPBITON | IM);
+            setSTATUS((getSTATUS() | IECON | IM) & ~TEBITON);
             WAIT();
         }
         else
