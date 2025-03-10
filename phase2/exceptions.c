@@ -2,9 +2,12 @@
 #include "../h/interrupts.h"
 #include "../h/pcb.h"
 #include "../h/asl.h"
-#include "../h/const.h"
+#include "../h/types.h"
 #include "../h/scheduler.h"
 #include "../h/initial.h"
+#include "../h/const.h"
+
+
 
 /**
  * Handles exceptions that occur during execution.
@@ -15,8 +18,9 @@ void exceptionHandler()
     /* Get the saved state from the BIOS Data Page */
     state_t *savedState = (state_t *)BIOSDATAPAGE;
 
+
     /* Extract the exception code from the Cause register */
-    int exceptionCode = (savedState->s_cause & CAUSEMASK) >> 2;
+    int exceptionCode = (savedState->s_cause & 0x0000007C) >> 2;
 
     switch (exceptionCode)
     {
@@ -45,6 +49,7 @@ void exceptionHandler()
         /* Check if SYSCALL number is 9 or higher */
         if (savedState->s_a0 >= 9)
         {
+            /*debugVar4 = 0xABCD; */
             passUpOrDie(GENERALEXCEPT);
         }
         else
@@ -67,12 +72,16 @@ void exceptionHandler()
  */
 void syscallHandler(state_t *savedState)
 {
+    /* Move to the next instruction after syscall */
+    savedState->s_pc += 4;
+
     /* Check if the process is in user mode */
     if ((savedState->s_status & KUPBITON) != 0)
     {
         /* Simulate a Program Trap exception */
-        savedState->s_cause = (savedState->s_cause & ~CAUSEMASK) | (RESVINSTR << CAUSEINTOFFS);
-        programTrapHandler(savedState);
+        /* savedState->s_cause = (savedState->s_cause & ~0x0000007C) | (RESVINSTR << 2);*/
+        passUpOrDie(GENERALEXCEPT);
+        return;
     }
 
     /* Retrieve syscall number from register a0 */
@@ -85,6 +94,7 @@ void syscallHandler(state_t *savedState)
         savedState->s_v0 = sysCreateProcess((state_t *)savedState->s_a1, (support_t *)savedState->s_a2);
         break;
     case TERMINATEPROCESS:
+        /* debugVar2 = 0xBEEF; */
         sysTerminate(currentProcess);
         scheduler();
         break;
@@ -105,6 +115,7 @@ void syscallHandler(state_t *savedState)
         sysGetCPUTime(savedState);
         break;
     case WAITCLOCK:
+        debugSyscallWaitClock = 0xBEEF;
         /* Block process until next pseudo-clock tick */
         sysWaitClock();
         break;
@@ -118,12 +129,10 @@ void syscallHandler(state_t *savedState)
         scheduler();
     }
 
-    /* Move to the next instruction after syscall */
-    savedState->s_pc += 4;
     LDST(savedState);
 }
 
-/** 
+/**
  * Creates a new process with the provided processor state.
  * Inserts the process into the Ready Queue and sets its parent.
  */
@@ -198,11 +207,22 @@ void sysTerminate(pcb_t *p)
         outChild(p);
     }
 
+    /* If this is the current process, clear the pointer */
+    if (p == currentProcess)
+    {
+        currentProcess = NULL;
+    }
+
     /* Free the PCB */
     freePcb(p);
 
     /* Decrease active process count */
-    processCount--;
+    if (processCount > 0)
+    {
+        processCount--;
+    }
+
+    debugProcessCount = processCount;
 
     /* If no more processes exist, HALT */
     if (processCount == 0)
@@ -211,14 +231,15 @@ void sysTerminate(pcb_t *p)
     }
 }
 
-/** 
- * Performs the P operation on the given semaphore. 
+/**
+ * Performs the P operation on the given semaphore.
  * Blocks the process if necessary and calls the scheduler.
  */
 void sysPasseren(int *semaddr)
 {
     /* Update CPU time */
     updateCPUTime();
+
 
     /* Decrement the semaphore */
     (*semaddr)--;
@@ -232,12 +253,13 @@ void sysPasseren(int *semaddr)
         /* Block current process and add it to the semaphore queue */
         currentProcess->p_semAdd = semaddr;
         insertBlocked(semaddr, currentProcess);
+
         /* Call the scheduler to select the next process */
         scheduler();
     }
 }
 
-/** 
+/**
  * Performs the V operation on the given semaphore.
  * Unblocks one waiting process, if any.
  */
@@ -251,6 +273,7 @@ void sysVerhogen(int *semAddr)
 
     if (unblockedProcess != NULL)
     {
+        /* Debugging: Check if process is unblocked */
         unblockedProcess->p_semAdd = NULL; /* Clear semaphore address */
 
         /* If unblocking a soft-blocked process, decrement softBlockCount */
@@ -262,7 +285,7 @@ void sysVerhogen(int *semAddr)
     }
 }
 
-/** 
+/**
  * Transitions the current process from running to blocked:
  * performs a P opperation on the semaphore for the IO device.
  * Updates CPU time and state, insertBlocked, and calls scheduler.
@@ -270,7 +293,7 @@ void sysVerhogen(int *semAddr)
 void sysWaitIO(state_t *savedState, int intLineNo, int devNum, int waitForTermRead)
 {
     int deviceIndex;
-    /*need to increment soft block count */
+
     /* Compute the device index */
     if (intLineNo == TERMINT)
     {
@@ -293,13 +316,11 @@ void sysWaitIO(state_t *savedState, int intLineNo, int devNum, int waitForTermRe
 
     /* Perform P operation on the device semaphore (blocks if necessary) */
     sysPasseren(semaddr);
-
-    
 }
 
-/** 
- * Retrieves the accumulated CPU time for the current process. 
-*/
+/**
+ * Retrieves the accumulated CPU time for the current process.
+ */
 void sysGetCPUTime(state_t *savedState)
 {
     cpu_t currentTOD;
@@ -309,10 +330,10 @@ void sysGetCPUTime(state_t *savedState)
     savedState->s_v0 = currentProcess->p_time + (currentTOD - currentProcess->p_startTOD);
 }
 
-/** 
+/**
  * Performs a P opperation on the nucleus maintained pseudoclock
  * semaphore. Blocks the current process on the ASL, calls the
- * scheduler. 
+ * scheduler.
  */
 void sysWaitClock()
 {
@@ -336,8 +357,8 @@ void *sysGetSupportPTR()
 
 /**
  * Handles program traps, terminating the offending process.
-*/
-void programTrapHandler(state_t *savedState)
+ */
+void programTrapHandler()
 {
     passUpOrDie(GENERALEXCEPT);
 }
@@ -371,23 +392,43 @@ void updateCPUTime()
  */
 void passUpOrDie(int exceptType)
 {
+
     /* Check if the current process has a support structure */
     if (currentProcess->p_supportStruct == NULL)
     {
-        /* No support structure, terminate the process and its children */
+
+        /* No support structure, terminate the process */
         sysTerminate(currentProcess);
-        scheduler(); /* Call scheduler after termination */
+
+        /* Call scheduler with NULL currentProcess */
+        scheduler();
     }
 
-    /* Copy the saved exception state to the appropriate support structure field */
-    memcopy(&(currentProcess->p_supportStruct->sup_exceptState[exceptType]),
-            (state_t *)BIOSDATAPAGE,
-            sizeof(state_t));
+    else
+    {
+        /* Verify the context values are valid */
+        context_t *exceptContext = &(currentProcess->p_supportStruct->sup_exceptContext[exceptType]);
 
-    /* Load the exception handler's context */
-    LDCXT(currentProcess->p_supportStruct->sup_exceptContext[exceptType].c_stackPtr,
-          currentProcess->p_supportStruct->sup_exceptContext[exceptType].c_status,
-          currentProcess->p_supportStruct->sup_exceptContext[exceptType].c_pc);
+        /*debugVar2 = (int)exceptContext->c_pc;
+        debugVar3 = (int)exceptContext->c_status; */
+        /* If the exception context is invalid, terminate the process */
+        if (!exceptContext->c_pc || !exceptContext->c_stackPtr)
+        {
+            sysTerminate(currentProcess);
+            scheduler();
+            return;
+        }
+
+        /* Copy the saved exception state to the appropriate support structure field */
+        memcopy(&(currentProcess->p_supportStruct->sup_exceptState[exceptType]),
+                (state_t *)BIOSDATAPAGE,
+                sizeof(state_t));
+
+        /* Load the exception handler's context */
+        LDCXT(exceptContext->c_stackPtr,
+              exceptContext->c_status,
+              exceptContext->c_pc);
+    }
 }
 
 void memcopy(void *dest, const void *src, unsigned int n)

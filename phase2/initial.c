@@ -1,9 +1,11 @@
 #include "../h/initial.h"
 #include "../h/pcb.h"
 #include "../h/asl.h"
-#include "../h/const.h"
-#include "../h/scheduler.h" 
+#include "../h/scheduler.h"
 #include "../h/exceptions.h"
+#include "../h/interrupts.h"
+#include "../h/types.h"
+#include "../h/const.h"
 
 /* Global Variables */
 int processCount = 0;                        /* Active process count */
@@ -13,7 +15,7 @@ pcb_t *currentProcess = NULL;                /* Currently running process */
 int deviceSemaphores[NUM_DEVICES + 1] = {0}; /* Device semaphores (extra one for pseudo-clock) */
 
 /* Declaring the test function */
-extern void test(); 
+extern void test();
 
 /**
  * Initializes the Level 3 system.
@@ -23,10 +25,10 @@ extern void test();
 void main()
 {
     /* Initialize Global Variables */
-    processCount = 0;                       
+    processCount = 0;
     softBlockCount = 0;
     readyQueue = mkEmptyProcQ();
-    currentProcess = NULL;                
+    currentProcess = NULL;
 
     /* Get the Pass Up Vector from BIOS Data Page */
     passupvector_t *passupvector = (passupvector_t *)PASSUPVECTOR;
@@ -40,8 +42,8 @@ void main()
     passupvector->exception_stackPtr = (memaddr)0x20001000;
 
     /* Initialize Phase 1 data structures */
-    initPcbs(); 
-    initASL();  
+    initPcbs();
+    initASL();
 
     /* Initialize Nucleus variables */
     int i;
@@ -81,10 +83,10 @@ void createProcess()
     }
 
     /* Initialize Processor State */
-    p->p_s.s_status = IEPBITON | TEBITON & KUPBITOFF; /* Enable Interrupts, Timer, Kernel Mode */
-    p->p_s.s_sp = RAMTOP;               /* Set Stack Pointer to RAMTOP */
-    p->p_s.s_pc = (memaddr)test;        /* Set Program Counter to `test` */
-    p->p_s.s_t9 = (memaddr)test;        /* Assign t9 register to `test` */
+    p->p_s.s_status = IEPBITON | IM | TEBITON; /* Enable Interrupts, Timer */
+    p->p_s.s_sp = RAMTOP;                      /* Set Stack Pointer to RAMTOP */
+    p->p_s.s_pc = (memaddr)test;               /* Set Program Counter to `test` */
+    p->p_s.s_t9 = (memaddr)test;               /* Assign t9 register to `test` */
 
     /* Initialize pcb fields */
     p->p_prnt = NULL;          /* No parent */
@@ -99,4 +101,3 @@ void createProcess()
     insertProcQ(&readyQueue, p);
     processCount++; /* Increment process count */
 }
-

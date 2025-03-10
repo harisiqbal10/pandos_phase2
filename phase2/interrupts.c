@@ -1,10 +1,15 @@
 #include "../h/exceptions.h"
 #include "../h/pcb.h"
 #include "../h/asl.h"
-#include "../h/const.h"
+#include "../h/types.h"
 #include "../h/scheduler.h"
 #include "../h/initial.h"
 #include "../h/interrupts.h"
+#include "../h/const.h"
+
+/*int debugVar5 = 0;
+int debugVar6 = 0;
+int debugVar7 = 0;*/
 
 /**
  * Handles external interrupts by identifying the highest-priority pending interrupt
@@ -51,9 +56,10 @@ void interruptHandler()
  * Handles PLT interrupts by reloading the timer, saving the process state, updating CPU time,
  * moving the process to the Ready Queue, and invoking the scheduler.
  */
-void handlePLTInterrupt(){
+void handlePLTInterrupt()
+{
     /* Acknowledge the PLT interrupt by reloading the timer */
-    LDIT(5000); /* Load Interval Timer with 5ms */
+    setTIMER(5000); /* Load PLT with 5ms */
 
     /* Save process state */
     memcopy(&(currentProcess->p_s), (state_t *)BIOSDATAPAGE, sizeof(state_t));
@@ -78,7 +84,7 @@ void handleIntervalTimerInterrupt()
     LDIT(CLOCKINTERVAL); /* Reload Interval Timer with 100ms */
 
     /* Unblock all processes waiting on the Pseudo-clock semaphore */
-    while (headBlocked(&deviceSemaphores[NUM_DEVICES]) != NULL) 
+    while (headBlocked(&deviceSemaphores[NUM_DEVICES]) != NULL)
     {
         pcb_t *unblockedProcess = removeBlocked(&deviceSemaphores[NUM_DEVICES]);
         if (unblockedProcess != NULL)
@@ -156,6 +162,9 @@ void handleDeviceInterrupt(int intLine)
     {
         /* Store the device's status register value in v0 of the unblocked process */
         unblockedProcess->p_s.s_v0 = status;
+
+        /* Decrement the soft block count since a process is being unblocked */
+        softBlockCount--;
 
         /* Move the unblocked process to the Ready Queue */
         insertProcQ(&readyQueue, unblockedProcess);
