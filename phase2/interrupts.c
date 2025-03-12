@@ -113,6 +113,12 @@ void handleIntervalTimerInterrupt()
     }
 }
 
+void debug(int a, int b){
+    int i=1;
+    int j=0;
+    j= j+i;
+    return;
+}
 /**
  * Handles device interrupts by identifying the highest-priority device, saving its status,
  * acknowledging the interrupt, unblocking any waiting process, and restoring execution.
@@ -133,10 +139,12 @@ void handleDeviceInterrupt(int intLine)
     {
         if (status & 0xFF) /* If low byte is non-zero, it's a Transmitter interrupt */
         {
+            status = deviceReg->t_transm_status;
             deviceReg->t_transm_command = ACK;
         }
         else /* Otherwise, it's a Receiver interrupt */
         {
+            status = deviceReg->t_recv_status;
             deviceReg->t_recv_command = ACK;
         }
     }
@@ -145,12 +153,14 @@ void handleDeviceInterrupt(int intLine)
         deviceReg->d_command = ACK;
     }
 
+
+
     /* Compute the index in the deviceSemaphores array */
     int deviceIndex;
     if (intLine == TERMINT)
     {
         /* Terminal devices have two sub-devices (Receiver and Transmitter) */
-        int isTransmitter = (status & 0xFF) ? 1 : 0; /* 1 for Transmitter, 0 for Receiver */
+        int isTransmitter = (status & 0xFF) ? 0 : 1; /* 1 for Transmitter, 0 for Receiver */
         deviceIndex = (4 * DEVPERINT) + (devNum * 2) + isTransmitter;
     }
     else
@@ -158,6 +168,9 @@ void handleDeviceInterrupt(int intLine)
         /* Other devices use normal indexing */
         deviceIndex = (intLine - 3) * DEVPERINT + devNum;
     }
+
+    /*increment semaphore addr*/
+    deviceSemaphores[deviceIndex]++;
 
     /* Perform a V operation on the corresponding semaphore */
     pcb_t *unblockedProcess = removeBlocked(&deviceSemaphores[deviceIndex]);

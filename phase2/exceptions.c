@@ -115,7 +115,7 @@ void syscallHandler(state_t *savedState)
         sysGetCPUTime(savedState);
         break;
     case WAITCLOCK:
-        debugSyscallWaitClock = 0xBEEF;
+        /* debugSyscallWaitClock = 0xBEEF;*/
         /* Block process until next pseudo-clock tick */
         sysWaitClock();
         break;
@@ -222,7 +222,7 @@ void sysTerminate(pcb_t *p)
         processCount--;
     }
 
-    debugProcessCount = processCount;
+    /*debugProcessCount = processCount;*/
 
     /* If no more processes exist, HALT */
     if (processCount == 0)
@@ -252,7 +252,9 @@ void sysPasseren(int *semaddr)
 
         /* Block current process and add it to the semaphore queue */
         currentProcess->p_semAdd = semaddr;
+        debug((int)semaddr, (int)currentProcess);
         insertBlocked(semaddr, currentProcess);
+        currentProcess=NULL;
 
         /* Call the scheduler to select the next process */
         scheduler();
@@ -311,11 +313,12 @@ void sysWaitIO(state_t *savedState, int intLineNo, int devNum, int waitForTermRe
     /* increment softBlockCount */
     softBlockCount++;
 
+    /* Process should be blocked now; once unblocked, store device status */
+    /*savedState->s_v0 = ((device_t *)DEV_REG_ADDR(intLineNo, devNum))->d_status;*/
+
     /* Perform P operation on the device semaphore (blocks if necessary) */
     sysPasseren(semaddr);
 
-    /* Process should be blocked now; once unblocked, store device status */
-    savedState->s_v0 = ((device_t *)DEV_REG_ADDR(intLineNo, devNum))->d_status;
 }
 
 /**

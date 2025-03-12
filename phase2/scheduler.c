@@ -17,6 +17,7 @@ void scheduler()
     /* Select the next process to run */
     currentProcess = removeProcQ(&readyQueue);
 
+
     /* If no ready process exists, handle special cases */
     if (currentProcess == NULL)
     {
@@ -26,9 +27,13 @@ void scheduler()
         }
         else if (softBlockCount > 0)
         {
+            /*unsigned int prevStatus = getSTATUS();*/
             /* Wait for an I/O or timer interrupt */
-            setSTATUS((getSTATUS() | IECON | IM) & ~TEBITON);
+            /*setSTATUS((prevStatus | IECON | IM) & ~TEBITON);*/
+            setSTATUS(0x0000FF01);
             WAIT();
+            /* reset status to previous */
+            /*setSTATUS(prevStatus);*/
         }
         else
         {
