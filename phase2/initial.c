@@ -1,3 +1,12 @@
+/************************** initial.c ******************************
+ *
+ * This file handles system initialization and starts the first user process.
+ * It sets up global variables, configures exception handling, initializes
+ * phase 1 data structures, and prepares device semaphores. The system timer
+ * is configured, and the first process is created and scheduled.
+ * Execution control is then transferred to the scheduler to manage processes.
+ ***************************************************************/
+
 #include "../h/initial.h"
 #include "../h/pcb.h"
 #include "../h/asl.h"
@@ -18,9 +27,14 @@ int deviceSemaphores[NUM_DEVICES + 1] = {0}; /* Device semaphores (extra one for
 extern void test();
 
 /**
- * Initializes the Level 3 system.
- * - Sets up the Pass Up Vector
- * - Prepares exception and TLB refill handlers
+ The `main` function serves as the starting point of the kernel, responsible for:
+ * - Initializing global process management variables.
+ * - Setting up the Pass Up Vector for handling TLB refills and exceptions.
+ * - Initializing Phase 1 data structures (Pcbs and ASL).
+ * - Initializing device semaphores for I/O synchronization.
+ * - Setting up the system timer for periodic interrupts.
+ * - Creating the initial user process and handing control to the scheduler.
+ * - Entering an infinite loop if the scheduler returns (which should never happen).
  */
 void main()
 {

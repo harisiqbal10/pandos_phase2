@@ -9,9 +9,7 @@
  *  Implements an interrupt handler that determines the highest priority
  *  pending interrupt and dispatches it to the appropriate handler.
  *
-*/
-
-#include "../h/types.h"
+ */
 
 extern void interruptHandler();
 extern void handlePLTInterrupt();
@@ -22,4 +20,4 @@ extern int getHighestPriorityDevice(int intLine);
 
 /*******************************************************************/
 
-#endif 
+#endif

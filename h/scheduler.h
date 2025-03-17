@@ -9,11 +9,8 @@
  *  Handles process dispatching and deadlock detection.
  */
 
-
-#include "../h/types.h"
-
-extern void scheduler(); 
+extern void scheduler();
 
 /******************************************************************/
 
-#endif 
+#endif

@@ -1,3 +1,15 @@
+/************************** exceptions.c ******************************
+ *
+ * Handles all exception types in the system, including SYSCALLs,
+ * program traps, and TLB exceptions.
+ *
+ * This file contains the Nucleus-level exception handler, which determines
+ * the type of exception, processes it accordingly, and either passes it
+ * to a user-level handler (if applicable) or terminates the faulty process.
+ * It also implements the Pass Up or Die mechanism for exceptions that require
+ * user-level handling and ensures correct system behavior when exceptions occur.
+ ***************************************************************/
+
 #include "../h/exceptions.h"
 #include "../h/interrupts.h"
 #include "../h/pcb.h"
@@ -7,20 +19,21 @@
 #include "../h/initial.h"
 #include "../h/const.h"
 
-
-
 /**
- * Handles exceptions that occur during execution.
  * The exception type is determined by examining the Cause register.
+ * Based on the exception code, control is passed to the appropriate
+ * handler (SYSCALL, program trap, TLB exception, or interrupt handler).
+ * If an unhandled exception occurs, the system takes necessary actions
+ * to terminate the process or halt execution.
  */
 void exceptionHandler()
 {
     /* Get the saved state from the BIOS Data Page */
     state_t *savedState = (state_t *)BIOSDATAPAGE;
 
-
-    /* Extract the exception code from the Cause register */
-    int exceptionCode = (savedState->s_cause & 0x0000007C) >> 2;
+    /* Extract detailed exception information */
+    unsigned int causeReg = savedState->s_cause;
+    int exceptionCode = (causeReg & CAUSEMASK) >> 2;
 
     switch (exceptionCode)
     {
@@ -49,7 +62,6 @@ void exceptionHandler()
         /* Check if SYSCALL number is 9 or higher */
         if (savedState->s_a0 >= 9)
         {
-            /*debugVar4 = 0xABCD; */
             passUpOrDie(GENERALEXCEPT);
         }
         else
@@ -66,9 +78,10 @@ void exceptionHandler()
 }
 
 /**
- * Handles SYSCALL exceptions.
- * The function number is stored in register a0 of the saved state.
- * If a syscall is invoked from user mode, the process is terminated.
+ * Determines the system call type based on the function number stored in
+ * register a0 of the saved state. If a syscall is invoked from user mode,
+ * the process is terminated. Otherwise, the appropriate syscall handler
+ * (e.g., process control, synchronization, or I/O) is executed.
  */
 void syscallHandler(state_t *savedState)
 {
@@ -79,9 +92,7 @@ void syscallHandler(state_t *savedState)
     if ((savedState->s_status & KUPBITON) != 0)
     {
         /* Simulate a Program Trap exception */
-        /* savedState->s_cause = (savedState->s_cause & ~0x0000007C) | (RESVINSTR << 2);*/
         passUpOrDie(GENERALEXCEPT);
-        return;
     }
 
     /* Retrieve syscall number from register a0 */
@@ -115,7 +126,6 @@ void syscallHandler(state_t *savedState)
         sysGetCPUTime(savedState);
         break;
     case WAITCLOCK:
-        /* debugSyscallWaitClock = 0xBEEF;*/
         /* Block process until next pseudo-clock tick */
         sysWaitClock();
         break;
@@ -134,7 +144,10 @@ void syscallHandler(state_t *savedState)
 
 /**
  * Creates a new process with the provided processor state.
- * Inserts the process into the Ready Queue and sets its parent.
+ * Allocates a new PCB, initializes its state, and sets its parent-child
+ * relationship. The new process is then inserted into the Ready Queue
+ * to be scheduled for execution.
+ * Returns 0 on success, -1 if process creation fails (e.g., no available pcbs).
  */
 int sysCreateProcess(state_t *statep, support_t *supportp)
 {
@@ -158,6 +171,7 @@ int sysCreateProcess(state_t *statep, support_t *supportp)
 
     /* Insert into Ready Queue */
     insertProcQ(&readyQueue, newProcess);
+
     processCount++;
 
     return 0; /* Success */
@@ -165,7 +179,10 @@ int sysCreateProcess(state_t *statep, support_t *supportp)
 
 /**
  * Terminates a process and all its progeny recursively.
- * Ensures proper cleanup of semaphores and process tree.
+ * Recursively terminates all child processes, removes the process
+ * from any associated semaphores, and cleans up the process tree.
+ * If the terminated process is the current process, it is set to NULL.
+ * If no processes remain, the system halts.
  */
 void sysTerminate(pcb_t *p)
 {
@@ -204,6 +221,7 @@ void sysTerminate(pcb_t *p)
     /* If the process has a parent, detach it */
     if (p->p_prnt != NULL)
     {
+
         outChild(p);
     }
 
@@ -222,8 +240,6 @@ void sysTerminate(pcb_t *p)
         processCount--;
     }
 
-    /*debugProcessCount = processCount;*/
-
     /* If no more processes exist, HALT */
     if (processCount == 0)
     {
@@ -232,14 +248,15 @@ void sysTerminate(pcb_t *p)
 }
 
 /**
- * Performs the P operation on the given semaphore.
- * Blocks the process if necessary and calls the scheduler.
+ * Performs the P (wait) operation on the given semaphore.
+ * Decrements the semaphore value. If the resulting value is negative,
+ * the calling process is blocked and placed in the semaphore's queue.
+ * The scheduler is then invoked to select the next process to run.
  */
 void sysPasseren(int *semaddr)
 {
     /* Update CPU time */
     updateCPUTime();
-
 
     /* Decrement the semaphore */
     (*semaddr)--;
@@ -252,9 +269,8 @@ void sysPasseren(int *semaddr)
 
         /* Block current process and add it to the semaphore queue */
         currentProcess->p_semAdd = semaddr;
-        debug((int)semaddr, (int)currentProcess);
+
         insertBlocked(semaddr, currentProcess);
-        currentProcess=NULL;
 
         /* Call the scheduler to select the next process */
         scheduler();
@@ -262,28 +278,28 @@ void sysPasseren(int *semaddr)
 }
 
 /**
- * Performs the V operation on the given semaphore.
- * Unblocks one waiting process, if any.
+ * Performs the V (signal) operation on the given semaphore.
+ * Increments the semaphore value. If the resulting value is zero or negative,
+ * a blocked process (if any) is removed from the semaphore’s queue and moved
+ * to the Ready Queue for execution.
  */
 void sysVerhogen(int *semAddr)
 {
     /* Increment the semaphore value */
     (*semAddr)++;
 
-    /* If any process is blocked on this semaphore, unblock the first one */
-    pcb_t *unblockedProcess = removeBlocked(semAddr);
-
-    if (unblockedProcess != NULL)
+    /* If semaphore is still <= 0, unblock a process */
+    if (*semAddr <= 0)
     {
-        /* Debugging: Check if process is unblocked */
-        unblockedProcess->p_semAdd = NULL; /* Clear semaphore address */
+        /* If any process is blocked on this semaphore, unblock the first one */
+        pcb_t *unblockedProcess = removeBlocked(semAddr);
 
-        /* If unblocking a soft-blocked process, decrement softBlockCount */
-        if (semAddr >= &deviceSemaphores[0] && semAddr <= &deviceSemaphores[NUM_DEVICES])
+        if (unblockedProcess != NULL)
         {
-            softBlockCount--;
+            unblockedProcess->p_semAdd = NULL; /* Clear semaphore address */
+
+            insertProcQ(&readyQueue, unblockedProcess); /* Move to Ready Queue */
         }
-        insertProcQ(&readyQueue, unblockedProcess); /* Move to Ready Queue */
     }
 }
 
@@ -308,17 +324,16 @@ void sysWaitIO(state_t *savedState, int intLineNo, int devNum, int waitForTermRe
         deviceIndex = (intLineNo - 3) * DEVPERINT + devNum;
     }
 
-    int *semaddr = &deviceSemaphores[deviceIndex];
+    int *semaddr = &(deviceSemaphores[deviceIndex]);
 
     /* increment softBlockCount */
     softBlockCount++;
 
-    /* Process should be blocked now; once unblocked, store device status */
-    /*savedState->s_v0 = ((device_t *)DEV_REG_ADDR(intLineNo, devNum))->d_status;*/
-
     /* Perform P operation on the device semaphore (blocks if necessary) */
     sysPasseren(semaddr);
 
+    /* Process should be blocked now; once unblocked, store device status */
+    savedState->s_v0 = ((device_t *)DEV_REG_ADDR(intLineNo, devNum))->d_status;
 }
 
 /**
@@ -389,51 +404,44 @@ void updateCPUTime()
     currentProcess->p_startTOD = currentTOD;
 }
 
-/** Handles Pass Up or Die mechanism for TLB exceptions, program traps, and SYSCALLs >= 9.
- *  If the current process has a support structure, it passes the exception to the support level.
- *  Otherwise, the process and all its progeny are terminated.
+/**
+ * Handles Pass Up or Die mechanism for TLB exceptions, program traps, and SYSCALLs >= 9.
+ * If the current process has a support structure, it passes the exception to the support level.
+ * Otherwise, the process and all its progeny are terminated.
  */
 void passUpOrDie(int exceptType)
 {
-
     /* Check if the current process has a support structure */
     if (currentProcess->p_supportStruct == NULL)
     {
-
         /* No support structure, terminate the process */
         sysTerminate(currentProcess);
-
-        /* Call scheduler with NULL currentProcess */
         scheduler();
     }
-
     else
     {
-        /* Verify the context values are valid */
-        context_t *exceptContext = &(currentProcess->p_supportStruct->sup_exceptContext[exceptType]);
+        /* Get source state */
+        state_t *savedState = (state_t *)BIOSDATAPAGE;
 
-        /*debugVar2 = (int)exceptContext->c_pc;
-        debugVar3 = (int)exceptContext->c_status; */
-        /* If the exception context is invalid, terminate the process */
-        if (!exceptContext->c_pc || !exceptContext->c_stackPtr)
-        {
-            sysTerminate(currentProcess);
-            scheduler();
-            return;
-        }
-
-        /* Copy the saved exception state to the appropriate support structure field */
+        /* Copy the saved exception state */
         memcopy(&(currentProcess->p_supportStruct->sup_exceptState[exceptType]),
-                (state_t *)BIOSDATAPAGE,
+                savedState,
                 sizeof(state_t));
 
         /* Load the exception handler's context */
+        context_t *exceptContext = &(currentProcess->p_supportStruct->sup_exceptContext[exceptType]);
         LDCXT(exceptContext->c_stackPtr,
               exceptContext->c_status,
               exceptContext->c_pc);
     }
 }
 
+/**
+ * Copies a block of memory from source to destination.
+ * This function performs a byte-by-byte copy of `n` bytes from the
+ * memory location pointed to by `src` to the memory location pointed to by `dest`.
+ * It assumes that the memory regions do not overlap.
+ */
 void memcopy(void *dest, const void *src, unsigned int n)
 {
     char *d = (char *)dest;

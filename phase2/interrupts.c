@@ -1,3 +1,13 @@
+/************************** interrupts.c ******************************
+ *
+ * Handles external interrupts and delegates processing to the appropriate handlers.
+ *
+ * This file manages hardware and timer interrupts by identifying the highest-priority
+ * pending interrupt and processing device-specific events. It ensures proper
+ * synchronization through semaphore operations and facilitates process scheduling
+ * when necessary.
+ ***************************************************************/
+
 #include "../h/exceptions.h"
 #include "../h/pcb.h"
 #include "../h/asl.h"
@@ -7,13 +17,12 @@
 #include "../h/interrupts.h"
 #include "../h/const.h"
 
-/*int debugVar5 = 0;
-int debugVar6 = 0;
-int debugVar7 = 0;*/
-
 /**
  * Handles external interrupts by identifying the highest-priority pending interrupt
- * and delegating processing to the appropriate handler before restoring execution state.
+ * and delegating processing to the appropriate handler.
+ * This function extracts the cause of the interrupt, determines the corresponding
+ * interrupt line, and invokes the appropriate handler (e.g., for timers, devices, or
+ * processor-local interrupts) before restoring execution state.
  */
 void interruptHandler()
 {
@@ -113,12 +122,6 @@ void handleIntervalTimerInterrupt()
     }
 }
 
-void debug(int a, int b){
-    int i=1;
-    int j=0;
-    j= j+i;
-    return;
-}
 /**
  * Handles device interrupts by identifying the highest-priority device, saving its status,
  * acknowledging the interrupt, unblocking any waiting process, and restoring execution.
@@ -131,36 +134,34 @@ void handleDeviceInterrupt(int intLine)
     /* Compute the device register address */
     device_t *deviceReg = DEV_REG_ADDR(intLine, devNum);
 
-    /* Save the device's status register value */
-    unsigned int status = deviceReg->d_status;
+    /* Save the device's status register value BEFORE issuing ACK */
+    unsigned int status;
 
-    /* Acknowledge the interrupt by writing ACK to the command register */
     if (intLine == TERMINT)
     {
-        if (status & 0xFF) /* If low byte is non-zero, it's a Transmitter interrupt */
+        if (deviceReg->t_transm_status & 0xFF) /* If low byte is non-zero, it's a Transmitter interrupt */
         {
             status = deviceReg->t_transm_status;
-            deviceReg->t_transm_command = ACK;
+            deviceReg->t_transm_command = ACK; /* Acknowledge Transmitter */
         }
         else /* Otherwise, it's a Receiver interrupt */
         {
             status = deviceReg->t_recv_status;
-            deviceReg->t_recv_command = ACK;
+            deviceReg->t_recv_command = ACK; /* Acknowledge Receiver */
         }
     }
     else
     {
-        deviceReg->d_command = ACK;
+        status = deviceReg->d_status;
+        deviceReg->d_command = ACK; /* Acknowledge non-terminal device */
     }
-
-
 
     /* Compute the index in the deviceSemaphores array */
     int deviceIndex;
     if (intLine == TERMINT)
     {
         /* Terminal devices have two sub-devices (Receiver and Transmitter) */
-        int isTransmitter = (status & 0xFF) ? 0 : 1; /* 1 for Transmitter, 0 for Receiver */
+        int isTransmitter = (status & 0xFF) ? 0 : 1; /* 0 for Transmitter, 1 for Receiver */
         deviceIndex = (4 * DEVPERINT) + (devNum * 2) + isTransmitter;
     }
     else
@@ -169,33 +170,40 @@ void handleDeviceInterrupt(int intLine)
         deviceIndex = (intLine - 3) * DEVPERINT + devNum;
     }
 
-    /*increment semaphore addr*/
-    deviceSemaphores[deviceIndex]++;
+    /* Get semaphore address */
+    int *semAddr = &deviceSemaphores[deviceIndex];
 
-    /* Perform a V operation on the corresponding semaphore */
-    pcb_t *unblockedProcess = removeBlocked(&deviceSemaphores[deviceIndex]);
+    /* Always increment the semaphore first */
+    (*semAddr)++;
 
-    if (unblockedProcess != NULL)
+    /* If semaphore is still <= 0, unblock a process */
+    if (*semAddr <= 0)
     {
-        /* Store the device's status register value in v0 of the unblocked process */
-        unblockedProcess->p_s.s_v0 = status;
+        /* Perform a V operation on the corresponding semaphore */
+        pcb_t *unblockedProcess = removeBlocked(semAddr);
 
-        /* Decrement the soft block count since a process is being unblocked */
-        softBlockCount--;
+        if (unblockedProcess != NULL)
+        {
+            /* Store the device's status register value in v0 of the unblocked process */
+            unblockedProcess->p_s.s_v0 = status;
 
-        /* Move the unblocked process to the Ready Queue */
-        insertProcQ(&readyQueue, unblockedProcess);
-    }
+            /* Decrement the soft block count since a process is being unblocked */
+            softBlockCount--;
 
-    /* If there's no current process, call the scheduler */
-    if (currentProcess == NULL)
-    {
-        scheduler();
-    }
-    else
-    {
-        /* Return control to the Current Process */
-        LDST((state_t *)BIOSDATAPAGE);
+            /* Move the unblocked process to the Ready Queue */
+            insertProcQ(&readyQueue, unblockedProcess);
+        }
+
+        /* If there's no current process, call the scheduler */
+        if (currentProcess == NULL)
+        {
+            scheduler();
+        }
+        else
+        {
+            /* Return control to the Current Process */
+            LDST((state_t *)BIOSDATAPAGE);
+        }
     }
 }
 
@@ -220,7 +228,9 @@ int getHighestPriorityInterrupt(unsigned int cause)
     return -1; /* No interrupt found */
 }
 
-/** Returns the device number of the highest-priority device with a pending interrupt */
+/**
+ * Returns the device number of the highest-priority device with a pending interrupt
+ */
 int getHighestPriorityDevice(int intLine)
 {
     /* Read the Interrupting Devices Bit Map for this line */

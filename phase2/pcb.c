@@ -212,7 +212,9 @@ int emptyChild(pcb_t *p)
 void insertChild(pcb_t *prnt, pcb_t *p)
 {
     if (prnt == NULL || p == NULL)
+    {
         return;
+    }
 
     pcb_t *first_sib = prnt->p_child;
 
@@ -224,9 +226,8 @@ void insertChild(pcb_t *prnt, pcb_t *p)
     if (first_sib != NULL)
     {
         /* Update left sibling of old first child */
-        first_sib->p_sib_left = p; 
+        first_sib->p_sib_left = p;
     }
-    p->p_prnt = prnt; /* Set parent pointer */
 }
 
 /**

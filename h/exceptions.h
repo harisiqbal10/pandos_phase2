@@ -11,12 +11,10 @@
  *
  */
 
-#include "../h/types.h"
-
 extern void exceptionHandler();
 
 extern void syscallHandler();
-extern int  sysCreateProcess(); 
+extern int sysCreateProcess();
 extern void sysTerminate();
 extern void sysPasseren();
 extern void sysVerhogen();
@@ -33,4 +31,4 @@ extern void memcopy();
 
 /******************************************************************/
 
-#endif 
+#endif
